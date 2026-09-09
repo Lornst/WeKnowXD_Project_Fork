@@ -5,16 +5,28 @@ import (
 	"net/http"
 )
 
-var templates = template.Must(template.ParseGlob("templates/*.html"))
+var templates = template.Must(template.ParseFiles("templates/search_X.html"))
+
+type PageData struct {
+	Query   string
+	Results []struct {
+		Title       string
+		URL         string
+		Description string
+	}
+}
 
 func main() {
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		templates.ExecuteTemplate(w, "search.html", nil)
-		})
+		data := PageData{Query: r.URL.Query().Get("q")}
+		templates.ExecuteTemplate(w, "search_X.html", data)
+	})
 
 	http.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
