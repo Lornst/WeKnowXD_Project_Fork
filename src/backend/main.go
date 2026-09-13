@@ -21,8 +21,11 @@ func main() {
 	htmlPages := http.FileServer(http.Dir("./templates"))
 
 	mux.Handle("/", htmlPages)
+
 	mux.HandleFunc("GET /login", login)
 	mux.HandleFunc("POST /api/login", apiLogin)
+
+	mux.HandleFunc("/api/logout", apiLogout)
 
 	http.ListenAndServe(":8080", mux)
 }
@@ -52,6 +55,12 @@ func apiLogin(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	} else {
 		//Add session logic
 	}
+}
+
+func apiLogout(w http.ResponseWriter, r *http.Request) {
+	//TODO: add session handleling, stop user session.
+
+	http.ServeFile(w, r, "./templates/search.html")
 }
 
 func hashPassword(password string) string {
