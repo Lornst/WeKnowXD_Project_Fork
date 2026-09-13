@@ -44,7 +44,7 @@ func apiLogin(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		log.Fatal(error)
 	}
 
-	user := queryDB(reflect.TypeOf(User{}), db, "SELECT * FROM users WHERE username = " + r.FormValue("username"))
+	user := queryDB(reflect.TypeOf(User{}), db, "SELECT * FROM users WHERE username = "+r.FormValue("username"))
 	if len(user) == 0 {
 		log.Println("func: apiLogin, queryDB returned empty userlist when seaching for username: " + r.FormValue("username"))
 	} else if verifyPassword(user[0].password, r.FormValue("password")) == false {
@@ -67,7 +67,7 @@ func verifyPassword(storedHash string, password string) bool {
 	return storedHash == passwordHash
 }
 
-func queryDB(interchangeableStruct reflect.Type, db *sql.DB, query string) []any, any {
+func queryDB(interchangeableStruct reflect.Type, db *sql.DB, query string) []any {
 	var structArray []any
 	rows, error := db.Query(query)
 
