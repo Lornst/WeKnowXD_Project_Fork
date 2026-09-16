@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/md5"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -106,9 +108,14 @@ func postRegister(w http.ResponseWriter, r *http.Request) {
 		errorMsg = "You have to enter a password"
 	} else if password2 != "" && password != password2 {
 		errorMsg = "The two passwords do not match"
+	} else {
+		// only bother hitting the db if everything else checked out already
+		var existingID int
+		err := db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&existingID)
+		if err == nil { // a row came back, so that username's taken
+			errorMsg = "Username already taken"
+		}
 	}
-
-	// still missing: checking if username's taken, hashing the password, and actually saving to the db
 
 	if errorMsg != "" {
 		response := map[string]any{
@@ -121,11 +128,23 @@ func postRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// this says success but nothing's actually being saved yet, that's next
+	hashedPassword := hashPassword(password) // never store the raw password
+
+	_, err := db.Exec("INSERT INTO users (username, email, password) VALUES (?, ?, ?)", username, email, hashedPassword)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	response := map[string]any{
 		"statusCode": http.StatusOK,
 		"message":    "Registered successfully",
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+func hashPassword(password string) string {
+	hash := md5.Sum([]byte(password)) // md5 for now, swapping to bcrypt later
+	return hex.EncodeToString(hash[:])
 }
