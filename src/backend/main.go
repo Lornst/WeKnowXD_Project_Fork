@@ -32,6 +32,8 @@ func getSearch(w http.ResponseWriter, r *http.Request) {
 	if language == "" {
 		language = "en"
 	}
+	
+	
 
 	/// DB logic goes above this. Need to figure out how to set up DB, then ill connect it
 	/// Talk about DB setup
