@@ -32,8 +32,6 @@ func getSearch(w http.ResponseWriter, r *http.Request) {
 	if language == "" {
 		language = "en"
 	}
-	
-	
 
 	/// DB logic goes above this. Need to figure out how to set up DB, then ill connect it
 	/// Talk about DB setup
@@ -46,7 +44,7 @@ func getSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 func postRegister(w http.ResponseWriter, r *http.Request) {
-	// The spec says this route expects form-urlencoded data (like an HTML
+	// The spec says this route expects form-urlencoded data (like an HTMLL
 	// form submit), NOT JSON. So we use r.FormValue instead of json.Decode.
 	// r.FormValue reads either URL query params or form-body fields —
 	// here it'll be reading from the POST body since that's where the
