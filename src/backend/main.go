@@ -43,6 +43,7 @@ func getSearch(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+//
 func postRegister(w http.ResponseWriter, r *http.Request) {
 	// The spec says this route expects form-urlencoded data (like an HTMLL
 	// form submit), NOT JSON. So we use r.FormValue instead of json.Decode.
