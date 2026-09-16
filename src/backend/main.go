@@ -17,7 +17,6 @@ func router() {
 
 	router.HandleFunc("GET /api/search", getSearch)
 	router.HandleFunc("POST /api/register", postRegister)
-	
 
 	err := http.ListenAndServe(":8080", router)
 	if err != nil {
