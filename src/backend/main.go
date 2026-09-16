@@ -22,12 +22,16 @@ func main() {
 
 	mux.Handle("/", htmlPages)
 
+	router(mux)
+
+	http.ListenAndServe(":8080", mux)
+}
+
+func router(mux *http.ServeMux){
 	mux.HandleFunc("GET /login", login)
 	mux.HandleFunc("POST /api/login", apiLogin)
 
 	mux.HandleFunc("/api/logout", apiLogout)
-
-	http.ListenAndServe(":8080", mux)
 }
 
 type User struct {
@@ -47,7 +51,7 @@ func apiLogin(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 		log.Fatal(error)
 	}
 
-	user := queryDB(reflect.TypeOf(User{}), db, "SELECT * FROM users WHERE username = "+r.FormValue("username"))
+	user := queryDB(reflect.TypeOf(User{}), db, "SELECT * FROM users WHERE username = "+ r.FormValue("username"))
 	if len(user) == 0 {
 		log.Println("func: apiLogin, queryDB returned empty userlist when seaching for username: " + r.FormValue("username"))
 	} else if verifyPassword(user[0].password, r.FormValue("password")) == false {
