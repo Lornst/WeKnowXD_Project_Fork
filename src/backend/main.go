@@ -1,13 +1,11 @@
 package main
 
 import (
-	"html/template"
-	"net/http"
-  "crypto/md5"
+	"crypto/md5"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"strings"
@@ -19,10 +17,9 @@ import (
 
 var templates = template.Must(template.ParseFiles("templates/search.html", "templates/register.html"))
 
-
 func main() {
-  initDB() // gotta connect to the db before the server starts taking requests
-  mux := http.NewServeMux()
+	initDB() // gotta connect to the db before the server starts taking requests
+	mux := http.NewServeMux()
 	router(mux)
 	http.ListenAndServe(":8080", mux)
 }
@@ -45,11 +42,11 @@ type RegisterData struct {
 func router(mux *http.ServeMux) {
 	mux.HandleFunc("GET /register", registerHandler)
 	mux.HandleFunc("GET /search", searchHandler)
+	mux.HandleFunc("GET /api/search", getSearch)
+	mux.HandleFunc("POST /api/register", postRegister)
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-  router.HandleFunc("GET /api/search", getSearch)
-	router.HandleFunc("POST /api/register", postRegister)
-}
 
+}
 
 func searchHandler(w http.ResponseWriter, r *http.Request) {
 	data := PageData{Query: r.URL.Query().Get("q")}
@@ -59,7 +56,6 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 func registerHandler(w http.ResponseWriter, r *http.Request) {
 	templates.ExecuteTemplate(w, "register.html", RegisterData{})
 }
-	
 
 var db *sql.DB // shared connection, every handler in this file can just use this directly
 
@@ -73,7 +69,6 @@ func initDB() {
 		log.Fatal(err)
 	}
 }
-
 
 func getSearch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q") // whatever the user typed into the search bar
