@@ -1,29 +1,39 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
+  <head>
     <title>Register</title>
-</head>
-<body>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
     <div>
-        {{ if .Error }} <!-- Vises kun hvis .Error ikke er tom -->
-        <div class="error"><strong>Error:</strong> {{ .Error }}</div> <!-- Viser fejlbesked fra Go-structen -->
-        {{ end }} <!-- Slutter if-blokken -->
+      {{ if .Error }}
+      <!-- Vises kun hvis .Error ikke er tom -->
+      <div class="error"><strong>Error:</strong> {{ .Error }}</div>
+      <!-- Viser fejlbesked fra Go-structen -->
+      {{ end }}
+      <!-- Slutter if-blokken -->
 
-        <form action="/api/register" method="POST"> <!-- POST-metode, fordi vi opretter data, ikke bare læser -->
-            <label>Username:</label>
-            <input type="text" name="username" value="{{ .Username }}" /> <!-- Genudfylder ved fejl, via .Username -->
+      <form action="/api/register" method="POST">
+        <!-- POST-metode, fordi vi opretter data, ikke bare læser -->
+        <label>Username:</label>
+        <input type="text" name="username" value="{{ .Username }}" />
+        <!-- Genudfylder ved fejl, via .Username -->
 
-            <label>E-Mail:</label>
-            <input type="text" name="email" value="{{ .Email }}" /> <!-- Genudfylder ved fejl, via .Email -->
+        <label>E-Mail:</label>
+        <input type="text" name="email" value="{{ .Email }}" />
+        <!-- Genudfylder ved fejl, via .Email -->
 
-            <label>Password:</label>
-            <input type="password" name="password" /> <!-- Tomt af sikkerhedshensyn, genudfyldes aldrig -->
+        <label>Password:</label>
+        <input type="password" name="password" />
+        <!-- Tomt af sikkerhedshensyn, genudfyldes aldrig -->
 
-            <label>Password (repeat):</label>
-            <input type="password" name="password2" /> <!-- Samme som ovenfor -->
+        <label>Password (repeat):</label>
+        <input type="password" name="password2" />
+        <!-- Samme som ovenfor -->
 
-            <button type="submit">Sign Up</button> <!-- Sender formularen som POST til /api/register -->
-        </form>
+        <button type="submit">Sign Up</button>
+        <!-- Sender formularen som POST til /api/register -->
+      </form>
     </div>
-</body>
+  </body>
 </html>
