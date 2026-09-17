@@ -1,7 +1,9 @@
 package main
 
 import (
-	"crypto/md5"
+	"html/template"
+	"net/http"
+  "crypto/md5"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
@@ -15,12 +17,51 @@ import (
 	//note: youll need to install a C compiler for this to work, since the SQLite3 driver is a cgo package:) and also do go env -w CGO_ENABLED=1 if its not already enabled
 )
 
-var db *sql.DB // shared connection, every handler in this file can just use this directly
+var templates = template.Must(template.ParseFiles("templates/search.html", "templates/register.html"))
+
 
 func main() {
-	initDB() // gotta connect to the db before the server starts taking requests
-	router()
+  initDB() // gotta connect to the db before the server starts taking requests
+  mux := http.NewServeMux()
+	router(mux)
+	http.ListenAndServe(":8080", mux)
 }
+
+type PageData struct {
+	Query   string
+	Results []struct {
+		Title       string
+		URL         string
+		Description string
+	}
+}
+
+type RegisterData struct {
+	Error    string
+	Username string
+	Email    string
+}
+
+func router(mux *http.ServeMux) {
+	mux.HandleFunc("GET /register", registerHandler)
+	mux.HandleFunc("GET /search", searchHandler)
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+  router.HandleFunc("GET /api/search", getSearch)
+	router.HandleFunc("POST /api/register", postRegister)
+}
+
+
+func searchHandler(w http.ResponseWriter, r *http.Request) {
+	data := PageData{Query: r.URL.Query().Get("q")}
+	templates.ExecuteTemplate(w, "search.html", data)
+}
+
+func registerHandler(w http.ResponseWriter, r *http.Request) {
+	templates.ExecuteTemplate(w, "register.html", RegisterData{})
+}
+	
+
+var db *sql.DB // shared connection, every handler in this file can just use this directly
 
 func initDB() {
 	var err error
@@ -33,17 +74,6 @@ func initDB() {
 	}
 }
 
-func router() {
-	router := http.NewServeMux()
-
-	router.HandleFunc("GET /api/search", getSearch)
-	router.HandleFunc("POST /api/register", postRegister)
-
-	err := http.ListenAndServe(":8080", router)
-	if err != nil {
-		fmt.Println(err)
-	}
-}
 
 func getSearch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q") // whatever the user typed into the search bar
