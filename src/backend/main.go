@@ -15,7 +15,7 @@ import (
 	//note: youll need to install a C compiler for this to work, since the SQLite3 driver is a cgo package:) and also do go env -w CGO_ENABLED=1 if its not already enabled
 )
 
-var templates = template.Must(template.ParseFiles("templates/search.html", "templates/register.html"))
+var templates = template.Must(template.ParseFiles("templates/search.html", "templates/register.html", "templates/layout.html"))
 
 func main() {
 	initDB() // gotta connect to the db before the server starts taking requests
@@ -40,6 +40,7 @@ type RegisterData struct {
 }
 
 func router(mux *http.ServeMux) {
+	mux.HandleFunc("GET /{$}", layoutHandler)
 	mux.HandleFunc("GET /register", registerHandler)
 	mux.HandleFunc("GET /search", searchHandler)
 	mux.HandleFunc("GET /api/search", getSearch)
@@ -48,9 +49,17 @@ func router(mux *http.ServeMux) {
 
 }
 
+// TODO: currently passing nil since we don't have session/auth handling yet.
+// Once that's built, replace this with a struct (e.g. LayoutData) holding
+// User (nil if not logged in) and Flashes ([]string), so layout.html's
+// {{ if .User }} and {{ if .Flashes }} blocks actually have data to work with.
+func layoutHandler(w http.ResponseWriter, r *http.Request) {
+	templates.ExecuteTemplate(w, "layout.html", nil)
+}
+
 func searchHandler(w http.ResponseWriter, r *http.Request) {
 	data := PageData{Query: r.URL.Query().Get("q")}
-	templates.ExecuteTemplate(w, "search.html", data)
+	templates.ExecuteTemplate(w, "layout.html", data)
 }
 
 func registerHandler(w http.ResponseWriter, r *http.Request) {
