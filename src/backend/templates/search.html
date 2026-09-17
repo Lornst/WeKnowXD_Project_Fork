@@ -1,36 +1,41 @@
-<!doctype html>
-<html>
-  <head>
-    <title>Search</title>
-    <link rel="stylesheet" href="/static/style.css"/>
-  </head>
-  <body>
-    <div>
-      <form method="GET" action="/api/search">
-        <!-- GET-metode + endpoint "/", fordi søgning kun læser data -->
-        <input
-          id="search-input"
-          name="q"
-          placeholder="Search..."
-          value="{{ .Query }}"
-        />
-        <!-- name="q" sendes som URL-parameter, value viser sidste søgning -->
-        <button type="submit">Search</button>
-        <!-- Sender formularen af sted uden JS -->
-      </form>
-    </div>
+{{ define "body" }}
+<div>
+  <input id="search-input" placeholder="Search..." value="{{ .Query }}"/>
+  <button id="search-button" onclick="makeSearchRequest()">Search</button>
+</div>
 
-    <div id="results">
-      {{ range .Results }}
-      <!-- Looper igennem .Results-listen fra Go -->
-      <div>
-        <h2><a href="{{ .URL }}">{{ .Title }}</a></h2>
-        <!-- Titel som klikbart link til resultatets URL -->
-        <p>{{ .Description }}</p>
-        <!-- Kort beskrivelse af resultatet -->
-      </div>
-      {{ end }}
-      <!-- Slutter loopet -->
-    </div>
-  </body>
-</html>
+<div id="results">
+  {{ range .Results }}
+  <div>
+    <h2><a class="search-result-title" href="{{ .URL }}">{{ .Title }}</a></h2>
+    <p class="search-result-description">{{ .Description }}</p>
+  </div>
+  {{ end }}
+</div>
+
+<script>
+  let searchInput;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    searchInput = document.getElementById("search-input");
+    searchInput.focus();
+    searchInput.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+          makeSearchRequest();
+        }
+    });
+  });
+
+  function makeSearchRequest() {
+    const query = searchInput.value;
+
+    fetch('/api/search?q=' + encodeURIComponent(query))
+      .then(response => response.json())
+      .then(data => {
+        console.log(data);
+        // TODO: render data.data into #results dynamically
+      })
+      .catch(error => console.error('Search request failed:', error));
+  }
+</script>
+{{ end }}
