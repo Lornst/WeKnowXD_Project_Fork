@@ -1,32 +1,44 @@
 <!doctype html>
-<title>¿Who Knows?</title>
-<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
-<div class="page">
-  <div class="navigation">
-  <nav>
-    <h1><a id="nav-logo" href="{{ url_for('search') }}">¿Who Knows?</a></h1>
-    {% if g.user %}
-    <a id="nav-logout" href="{{ url_for('logout') }}">Log out [{{ g.user.username }}]</a>
-    {% else %}
-    <a id="nav-login" href="{{ url_for('login') }}">Log in</a>
-    <a id="nav-register" href="{{ url_for('register') }}">Register</a>
-    {% endif %}
-  </nav>
-  </div>
-  {% with flashes = get_flashed_messages() %}
-    {% if flashes %}
+<html>
+  <head>
+    <title>¿Who Knows?</title>
+    <link rel="stylesheet" href="/static/style.css"/>
+  </head>
+  <body>
+    <div class="page">
+      <div class="navigation">
+        <nav>
+          <h1><a id="nav-logo" href="/">¿Who Knows?</a></h1>
+          <!-- Go har ingen indbygget url_for; ruter skrives direkte eller via en helper-funktion -->
+          {{ if .User }}
+          <!-- .User sættes af handleren, hvis brugeren er logget ind -->
+          <a id="nav-logout" href="/logout">Log out [{{ .User.Username }}]</a>
+          {{ else }}
+          <a id="nav-login" href="/login">Log in</a>
+          <a id="nav-register" href="/register">Register</a>
+          {{ end }}
+        </nav>
+      </div>
+
+      {{ if .Flashes }}
+      <!-- .Flashes er en []string sendt fra handleren, svarende til get_flashed_messages() -->
       <ul class="flashes">
-      {% for message in flashes %}
-        <li>{{ message }}
-      {% endfor %}
+        {{ range .Flashes }}
+        <li>{{ . }}</li>
+        <!-- {{ . }} refererer til det nuværende element i loopet -->
+        {{ end }}
       </ul>
-    {% endif %}
-  {% endwith %}
-  <div class="body">
-  {% block body %}{% endblock %}
-  </div>
-  <div class="footer">
-    <span>¿Who Knows? &copy; 2009</span>
-    <a href="{{ url_for('about') }}">About</a>
-  </div>
-</div>
+      {{ end }}
+
+      <div class="body">
+        {{ block "body" . }}{{ end }}
+        <!-- Go's block-direktiv erstatter Jinja's {% block body %}{% endblock %} -->
+      </div>
+
+      <div class="footer">
+        <span>¿Who Knows? &copy; 2009</span>
+        <a href="/about">About</a>
+      </div>
+    </div>
+  </body>
+</html>
