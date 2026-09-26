@@ -27,15 +27,41 @@
   });
 
   function makeSearchRequest() {
-    const query = searchInput.value;
+  const query = searchInput.value;
 
-    fetch('/api/search?q=' + encodeURIComponent(query))
-      .then(response => response.json())
-      .then(data => {
-        console.log(data);
-        // TODO: render data.data into #results dynamically
-      })
-      .catch(error => console.error('Search request failed:', error));
-  }
+  fetch('/api/search?q=' + encodeURIComponent(query))
+    .then(response => response.json())
+    .then(data => {
+      const resultsDiv = document.getElementById("results");
+      resultsDiv.innerHTML = ""; // clear old results
+
+      const results = data.data || []; // Go sends null when there are no matches
+
+      if (results.length === 0) {
+        resultsDiv.textContent = "No results found.";
+        return;
+      }
+
+      results.forEach(result => {
+        const wrapper = document.createElement("div");
+
+        const h2 = document.createElement("h2");
+        const link = document.createElement("a");
+        link.className = "search-result-title";
+        link.href = result.url;
+        link.textContent = result.title;
+        h2.appendChild(link);
+
+        const p = document.createElement("p");
+        p.className = "search-result-description";
+        p.textContent = result.content;
+
+        wrapper.appendChild(h2);
+        wrapper.appendChild(p);
+        resultsDiv.appendChild(wrapper);
+      });
+    })
+    .catch(error => console.error('Search request failed:', error));
+}
 </script>
 {{ end }}
