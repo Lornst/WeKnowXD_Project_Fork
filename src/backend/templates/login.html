@@ -1,18 +1,24 @@
-{% extends "layout.html" %}
-{% block title %}Sign In{% endblock %}
-{% block body %}
-  <h2>Log In</h2>
-  {% if error %}<div class="error"><strong>Error:</strong> {{ error }}</div>{% endif %}
-  <form action="/api/login" method="POST">
-    <dl>
-      <dt>Username:
-      <dd><input type="text" name="username" size="30" value="{{ request.form.username }}">
-      <dt>Password:
-      <dd><input type="password" name="password" size="30">
-    </dl>
-    <div class="actions">
-      <input type="submit" id="login-button" value="Log In">
-    </div>
-  </form>
-{% endblock %}
+<!doctype html>
+<html>
+  <head>
+    <title>Log In</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div>
+      {{ if .Error }}
+      <div class="error"><strong>Error:</strong> {{ .Error }}</div>
+      {{ end }}
 
+      <form action="/api/login" method="POST">
+        <label>Username:</label>
+        <input type="text" name="username" value="{{ .Username }}" />
+
+        <label>Password:</label>
+        <input type="password" name="password" />
+
+        <button type="submit" id="login-button">Log In</button>
+      </form>
+    </div>
+  </body>
+</html>
