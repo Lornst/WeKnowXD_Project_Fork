@@ -13,13 +13,16 @@
       <!-- hidden until the user is logged in -->
 
       <form id="login-form" action="/api/login" method="POST">
-        <label>Username:</label>
-        <input type="text" name="username" />
+        <dl>
+          <dt>Username:</dt>
+          <dd><input type="text" name="username" size="30" /></dd>
 
-        <label>Password:</label>
-        <input type="password" name="password" />
-
-        <button type="submit" id="login-button">Log In</button>
+          <dt>Password:</dt>
+          <dd><input type="password" name="password" size="30" /></dd>
+        </dl>
+        <div class="actions">
+          <button type="submit" id="login-button">Log In</button>
+        </div>
       </form>
     </div>
 
