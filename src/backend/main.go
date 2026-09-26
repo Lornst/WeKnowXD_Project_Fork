@@ -28,9 +28,9 @@ import (
 
 var db *sql.DB // shared connection, every handler in this file can just use this directly
 var templates = template.Must(template.ParseFiles(
-	"templates/search.html", 
-	"templates/register.html", 
-	"templates/layout.html", 
+	"templates/search.html",
+	"templates/register.html",
+	"templates/layout.html",
 	"templates/login.html"))
 
 var (
@@ -133,6 +133,11 @@ func apiLogin(w http.ResponseWriter, r *http.Request) {
 	userList := queryDB(reflect.TypeOf(User{}), "SELECT * FROM users WHERE username = ?", r.FormValue("username"))
 	if len(userList) == 0 {
 		log.Println("func: apiLogin, queryDB returned empty userlist when seaching for username: " + r.FormValue("username"))
+		w.WriteHeader(http.StatusUnauthorized)
+		templates.ExecuteTemplate(w, "login.html", LoginData{
+
+			Error:    "Invalid username or password",
+			Username: r.FormValue("username")})
 		return
 	}
 
@@ -140,6 +145,12 @@ func apiLogin(w http.ResponseWriter, r *http.Request) {
 
 	if verifyPassword(foundUser.Password, r.FormValue("password")) == false {
 		log.Println("func: apiLogin, user verifacation password missmatch")
+		w.WriteHeader(http.StatusUnauthorized)
+		templates.ExecuteTemplate(w, "login.html", LoginData{
+
+			Error:    "Invalid username or password",
+			Username: r.FormValue("username"),
+		})
 		return
 	} else {
 		token := generateSessionToken()
