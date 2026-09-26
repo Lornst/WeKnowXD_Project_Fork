@@ -6,34 +6,63 @@
   </head>
   <body>
     <div>
-      {{ if .Error }}
-      <!-- Vises kun hvis .Error ikke er tom -->
-      <div class="error"><strong>Error:</strong> {{ .Error }}</div>
-      <!-- Viser fejlbesked fra Go-structen -->
-      {{ end }}
-      <!-- Slutter if-blokken -->
+      <div id="register-error" class="error" style="display: none"></div>
+      <!-- hidden until the api sends back an error -->
 
-      <form action="/api/register" method="POST">
-        <!-- POST-metode, fordi vi opretter data, ikke bare læser -->
+      <div id="register-success" style="display: none"></div>
+      <!-- hidden until the user is registered -->
+
+      <form id="register-form" action="/api/register" method="POST">
+        <!-- POST since we're creating a user, not just reading -->
         <label>Username:</label>
         <input type="text" name="username" value="{{ .Username }}" />
-        <!-- Genudfylder ved fejl, via .Username -->
 
         <label>E-Mail:</label>
         <input type="text" name="email" value="{{ .Email }}" />
-        <!-- Genudfylder ved fejl, via .Email -->
 
         <label>Password:</label>
         <input type="password" name="password" />
-        <!-- Tomt af sikkerhedshensyn, genudfyldes aldrig -->
+        <!-- never refilled, for security -->
 
         <label>Password (repeat):</label>
         <input type="password" name="password2" />
-        <!-- Samme som ovenfor -->
 
         <button type="submit">Sign Up</button>
-        <!-- Sender formularen som POST til /api/register -->
       </form>
     </div>
+
+    <script>
+      document.getElementById("register-form").addEventListener("submit", (event) => {
+        event.preventDefault(); // otherwise the browser just goes to /api/register and shows the json
+
+        const form = event.target;
+        fetch("/api/register", {
+          method: "POST",
+          body: new URLSearchParams(new FormData(form)), // FormValue in go wants normal form data
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            const errorBox = document.getElementById("register-error");
+
+            if (data.statusCode === 200) {
+              errorBox.style.display = "none"; // hide any old error
+              form.style.display = "none"; // no point showing the form anymore
+
+              const successBox = document.getElementById("register-success");
+              successBox.textContent = "You were successfully registered! Taking you to the login page...";
+              successBox.style.display = "block";
+
+              setTimeout(() => {
+                window.location.href = "/login";
+              }, 2000); // 2 seconds so they can actually read it
+            } else {
+              errorBox.innerHTML = "<strong>Error:</strong> ";
+              errorBox.append(data.message); // append so the message is just text
+              errorBox.style.display = "block";
+            }
+          })
+          .catch((error) => console.error("register failed:", error));
+      });
+    </script>
   </body>
 </html>
