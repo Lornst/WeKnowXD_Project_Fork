@@ -27,7 +27,11 @@ import (
 )
 
 var db *sql.DB // shared connection, every handler in this file can just use this directly
-var templates = template.Must(template.ParseFiles("templates/search.html", "templates/register.html", "templates/layout.html"))
+var templates = template.Must(template.ParseFiles(
+	"templates/search.html", 
+	"templates/register.html", 
+	"templates/layout.html", 
+	"templates/login.html"))
 
 var (
 	Sessions      map[string]SessionData
@@ -48,6 +52,7 @@ func router(mux *http.ServeMux) {
 	mux.HandleFunc("GET /search", searchHandler)
 	mux.HandleFunc("GET /api/search", getSearch)
 	mux.HandleFunc("POST /api/register", postRegister)
+	mux.HandleFunc("GET /login", loginHandler)
 	mux.HandleFunc("POST /api/login", apiLogin)
 	mux.HandleFunc("POST /test", testSessions)
 
@@ -86,6 +91,11 @@ type RegisterData struct {
 	Email    string
 }
 
+type LoginData struct {
+	Error    string
+	Username string
+}
+
 // TODO: currently passing nil since we don't have session/auth handling yet.
 // Once that's built, replace this with a struct (e.g. LayoutData) holding
 // User (nil if not logged in) and Flashes ([]string), so layout.html's
@@ -101,6 +111,10 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 
 func registerHandler(w http.ResponseWriter, r *http.Request) {
 	templates.ExecuteTemplate(w, "register.html", RegisterData{})
+}
+
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	templates.ExecuteTemplate(w, "login.html", LoginData{})
 }
 
 func generateSessionToken() string {
