@@ -14,20 +14,23 @@
 
       <form id="register-form" action="/api/register" method="POST">
         <!-- POST since we're creating a user, not just reading -->
-        <label>Username:</label>
-        <input type="text" name="username" value="{{ .Username }}" />
+        <dl>
+          <dt>Username:</dt>
+          <dd><input type="text" name="username" size="30" value="{{ .Username }}" /></dd>
 
-        <label>E-Mail:</label>
-        <input type="text" name="email" value="{{ .Email }}" />
+          <dt>E-Mail:</dt>
+          <dd><input type="text" name="email" size="30" value="{{ .Email }}" /></dd>
 
-        <label>Password:</label>
-        <input type="password" name="password" />
-        <!-- never refilled, for security -->
+          <dt>Password:</dt>
+          <dd><input type="password" name="password" size="30" /></dd>
+          <!-- never refilled, for security -->
 
-        <label>Password (repeat):</label>
-        <input type="password" name="password2" />
-
-        <button type="submit">Sign Up</button>
+          <dt>Password (repeat):</dt>
+          <dd><input type="password" name="password2" size="30" /></dd>
+        </dl>
+        <div class="actions">
+          <button type="submit">Sign Up</button>
+        </div>
       </form>
     </div>
 
