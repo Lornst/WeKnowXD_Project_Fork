@@ -1,18 +1,75 @@
-{% extends "layout.html" %}
-{% block title %}Sign In{% endblock %}
-{% block body %}
-  <h2>Log In</h2>
-  {% if error %}<div class="error"><strong>Error:</strong> {{ error }}</div>{% endif %}
-  <form action="/api/login" method="POST">
-    <dl>
-      <dt>Username:
-      <dd><input type="text" name="username" size="30" value="{{ request.form.username }}">
-      <dt>Password:
-      <dd><input type="password" name="password" size="30">
-    </dl>
-    <div class="actions">
-      <input type="submit" id="login-button" value="Log In">
-    </div>
-  </form>
-{% endblock %}
+<!doctype html>
+<html>
+  <head>
+    <title>Log In</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div>
+      <div id="login-error" class="error" style="display: none"></div>
+      <!-- hidden until the login fails -->
 
+      <div id="login-success" style="display: none"></div>
+      <!-- hidden until the user is logged in -->
+
+      <form id="login-form" action="/api/login" method="POST">
+        <dl>
+          <dt>Username:</dt>
+          <dd><input type="text" name="username" size="30" /></dd>
+
+          <dt>Password:</dt>
+          <dd><input type="password" name="password" size="30" /></dd>
+        </dl>
+        <div class="actions">
+          <button type="submit" id="login-button">Log In</button>
+        </div>
+      </form>
+    </div>
+
+    <script>
+      document.getElementById("login-form").addEventListener("submit", (event) => {
+        event.preventDefault(); // same as register, stops the browser from leaving the page
+
+        const form = event.target;
+        fetch("/api/login", {
+          method: "POST",
+          body: new URLSearchParams(new FormData(form)),
+        })
+          .then((response) => response.text().then((text) => ({ ok: response.ok, text })))
+          .then(({ ok, text }) => {
+            const errorBox = document.getElementById("login-error");
+
+            // apiLogin sends plain text right now but might send json later, so handle both
+            let data = null;
+            try {
+              data = JSON.parse(text);
+            } catch {
+              // not json, so it's the old plain text response
+            }
+
+            const loggedIn = data
+              ? data.statusCode === 200
+              : ok && text === "Login succesfull";
+
+            if (loggedIn) {
+              errorBox.style.display = "none";
+              form.style.display = "none";
+
+              const successBox = document.getElementById("login-success");
+              successBox.textContent = "You were logged in! Taking you to the front page...";
+              successBox.style.display = "block";
+
+              setTimeout(() => {
+                window.location.href = "/";
+              }, 2000);
+            } else {
+              errorBox.innerHTML = "<strong>Error:</strong> ";
+              errorBox.append((data && data.message) || "Invalid username or password"); // use the api's message if there is one
+              errorBox.style.display = "block";
+            }
+          })
+          .catch((error) => console.error("login failed:", error));
+      });
+    </script>
+  </body>
+</html>

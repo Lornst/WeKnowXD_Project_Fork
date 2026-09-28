@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"os"
 
 	"log"
 	"net/http"
@@ -23,11 +24,16 @@ import (
 
 	"database/sql"
 
+	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 var db *sql.DB // shared connection, every handler in this file can just use this directly
-var templates = template.Must(template.ParseFiles("templates/search.html", "templates/register.html", "templates/layout.html"))
+var templates = template.Must(template.ParseFiles(
+	"templates/search.html",
+	"templates/register.html",
+	"templates/layout.html",
+	"templates/login.html"))
 
 var (
 	Sessions      map[string]SessionData
@@ -35,6 +41,11 @@ var (
 )
 
 func main() {
+
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using normal env variables")
+	}
+
 	Sessions = make(map[string]SessionData)
 	initDB()
 	mux := http.NewServeMux()
@@ -47,6 +58,9 @@ func router(mux *http.ServeMux) {
 	mux.HandleFunc("GET /register", registerHandler)
 	mux.HandleFunc("GET /search", searchHandler)
 	mux.HandleFunc("GET /api/search", getSearch)
+	mux.HandleFunc("GET /login", loginHandler)
+	mux.HandleFunc("GET /api/weather", apiWeather)
+
 	mux.HandleFunc("POST /api/register", postRegister)
 	mux.HandleFunc("POST /api/login", apiLogin)
 	mux.HandleFunc("POST /test", testSessions)
@@ -86,6 +100,11 @@ type RegisterData struct {
 	Email    string
 }
 
+type LoginData struct {
+	Error    string
+	Username string
+}
+
 // TODO: currently passing nil since we don't have session/auth handling yet.
 // Once that's built, replace this with a struct (e.g. LayoutData) holding
 // User (nil if not logged in) and Flashes ([]string), so layout.html's
@@ -101,6 +120,10 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 
 func registerHandler(w http.ResponseWriter, r *http.Request) {
 	templates.ExecuteTemplate(w, "register.html", RegisterData{})
+}
+
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	templates.ExecuteTemplate(w, "login.html", LoginData{})
 }
 
 func generateSessionToken() string {
@@ -119,6 +142,11 @@ func apiLogin(w http.ResponseWriter, r *http.Request) {
 	userList := queryDB(reflect.TypeOf(User{}), "SELECT * FROM users WHERE username = ?", r.FormValue("username"))
 	if len(userList) == 0 {
 		log.Println("func: apiLogin, queryDB returned empty userlist when seaching for username: " + r.FormValue("username"))
+		w.WriteHeader(http.StatusUnauthorized)
+		templates.ExecuteTemplate(w, "login.html", LoginData{
+
+			Error:    "Invalid username or password",
+			Username: r.FormValue("username")})
 		return
 	}
 
@@ -126,6 +154,12 @@ func apiLogin(w http.ResponseWriter, r *http.Request) {
 
 	if verifyPassword(foundUser.Password, r.FormValue("password")) == false {
 		log.Println("func: apiLogin, user verifacation password missmatch")
+		w.WriteHeader(http.StatusUnauthorized)
+		templates.ExecuteTemplate(w, "login.html", LoginData{
+
+			Error:    "Invalid username or password",
+			Username: r.FormValue("username"),
+		})
 		return
 	} else {
 		token := generateSessionToken()
@@ -308,4 +342,77 @@ func hashPassword(password string) string {
 func verifyPassword(storedHash string, password string) bool {
 	passwordHash := hashPassword(password)
 	return storedHash == passwordHash
+}
+
+// the last forecast we got from weatherapi, shared between all requests, so we don't get fucked and run out
+var (
+	weatherCache      map[string]any
+	weatherCachedAt   time.Time
+	weatherCacheMutex sync.Mutex // requests run at the same time, so only one can touch the cache at once
+)
+
+// how long we keep using the same forecast before asking weatherapi again
+const weatherCacheDuration = 30 * time.Minute
+
+// calls weatherapi and returns the forecast, doesn't know anything about the request/response to our own users
+func fetchWeather() (map[string]any, error) {
+	apiKey := os.Getenv("WEATHER_API_KEY") // comes from .env locally, github secrets later
+	url := "https://api.weatherapi.com/v1/forecast.json?key=" + apiKey + "&q=Copenhagen&days=3"
+
+	client := http.Client{Timeout: 10 * time.Second} // normal http.Get has no timeout and could hang forever
+	resp, err := client.Get(url)
+	if err != nil { // no answer at all, like no internet or timeout
+		return nil, err
+	}
+	defer resp.Body.Close() // body is still an open connection, has to be closed
+
+	// weatherapi did answer but with an error, like bad key or out of calls
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("weatherapi returned status %d", resp.StatusCode)
+	}
+
+	// turn the json from weatherapi into a go map
+	var weatherData map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&weatherData); err != nil {
+		return nil, err
+	}
+
+	return weatherData, nil
+}
+
+func apiWeather(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// lock so two requests don't mess with the cache at the same time
+	// also means if 50 requests come in when the cache is old, only the first one calls weatherapi
+	weatherCacheMutex.Lock()
+	defer weatherCacheMutex.Unlock()
+
+	// only ask weatherapi if we have nothing saved or what we have is too old
+	if weatherCache == nil || time.Since(weatherCachedAt) > weatherCacheDuration {
+		log.Println("func: apiWeather, cache empty or expired, fetching new forecast")
+
+		weatherData, err := fetchWeather()
+		if err != nil {
+			log.Println("func: apiWeather, fetching weather failed:", err)
+
+			if weatherCache == nil { // nothing old to fall back on
+				w.WriteHeader(http.StatusBadGateway) // 502, our server is fine but weatherapi failed
+				json.NewEncoder(w).Encode(map[string]any{
+					"data": map[string]any{
+						"error": "Could not fetch the weather forecast right now",
+					},
+				})
+				return
+			}
+			// otherwise we just keep using the old forecast below
+			// cachedAt isn't updated so the next request tries again
+		} else {
+			weatherCache = weatherData
+			weatherCachedAt = time.Now()
+		}
+	}
+
+	// spec wants it wrapped in "data"
+	json.NewEncoder(w).Encode(map[string]any{"data": weatherCache})
 }
