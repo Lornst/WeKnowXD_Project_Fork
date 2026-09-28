@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"os"
 
 	"log"
@@ -63,6 +64,7 @@ func router(mux *http.ServeMux) {
 
 	mux.HandleFunc("POST /api/register", postRegister)
 	mux.HandleFunc("POST /api/login", apiLogin)
+	mux.HandleFunc("GET /api/logout", apiLogout)
 	mux.HandleFunc("POST /test", testSessions)
 
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
@@ -70,6 +72,11 @@ func router(mux *http.ServeMux) {
 
 func testSessions(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(Sessions)
+}
+
+type AuthResponse struct {
+	StatusCode int    `json:"statusCode"`
+	Message    string `json:"message"`
 }
 
 type SessionData struct {
@@ -183,6 +190,48 @@ func apiLogin(w http.ResponseWriter, r *http.Request) {
 		println("User", foundUser.Username, "is currently logged in with session")
 		w.Write([]byte("Login succesfull"))
 	}
+}
+
+func apiLogout(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	cookie, err := r.Cookie("session_token")
+	if errors.Is(err, http.ErrNoCookie) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(AuthResponse{
+			StatusCode: http.StatusBadRequest,
+			Message:    "no cookie was found",
+		})
+		return
+	} else if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(AuthResponse{
+			StatusCode: http.StatusInternalServerError,
+			Message:    "server error",
+		})
+		return
+	}
+
+	sessionToken := cookie.Value
+
+	SessionsMutex.Lock()
+	delete(Sessions, sessionToken)
+	SessionsMutex.Unlock()
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session_token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+	})
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(AuthResponse{
+		StatusCode: http.StatusOK,
+		Message:    "Logout successful",
+	})
 }
 
 func queryDB(interchangeableStruct reflect.Type, query string, args ...any) []any {
