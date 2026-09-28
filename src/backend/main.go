@@ -2,26 +2,73 @@ package main
 
 import (
 	"crypto/md5"
-	"database/sql"
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"html/template"
+
 	"log"
 	"net/http"
+
+	"time"
+
+	"fmt"
+
 	"strings"
 
-	_ "github.com/mattn/go-sqlite3" // this one's blank on purpose, we're not calling anything from it
-	// directly, it just needs to load so sqlite3 gets registered as a driver
-	//note: youll need to install a C compiler for this to work, since the SQLite3 driver is a cgo package:) and also do go env -w CGO_ENABLED=1 if its not already enabled
+	"sync"
+
+	"html/template"
+
+	"reflect"
+
+	"database/sql"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
+var db *sql.DB // shared connection, every handler in this file can just use this directly
 var templates = template.Must(template.ParseFiles("templates/search.html", "templates/register.html", "templates/layout.html"))
 
+var (
+	Sessions      map[string]SessionData
+	SessionsMutex sync.RWMutex
+)
+
 func main() {
-	initDB() // gotta connect to the db before the server starts taking requests
+	Sessions = make(map[string]SessionData)
+	initDB()
 	mux := http.NewServeMux()
 	router(mux)
 	http.ListenAndServe(":8080", mux)
+}
+
+func router(mux *http.ServeMux) {
+	mux.HandleFunc("GET /{$}", layoutHandler)
+	mux.HandleFunc("GET /register", registerHandler)
+	mux.HandleFunc("GET /search", searchHandler)
+	mux.HandleFunc("GET /api/search", getSearch)
+	mux.HandleFunc("POST /api/register", postRegister)
+	mux.HandleFunc("POST /api/login", apiLogin)
+	mux.HandleFunc("POST /test", testSessions)
+
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+}
+
+func testSessions(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(Sessions)
+}
+
+type SessionData struct {
+	UserID    int
+	Username  string
+	ExpiresAt time.Time
+}
+
+type User struct {
+	Id       int
+	Username string
+	Email    string
+	Password string
 }
 
 type PageData struct {
@@ -37,16 +84,6 @@ type RegisterData struct {
 	Error    string
 	Username string
 	Email    string
-}
-
-func router(mux *http.ServeMux) {
-	mux.HandleFunc("GET /{$}", layoutHandler)
-	mux.HandleFunc("GET /register", registerHandler)
-	mux.HandleFunc("GET /search", searchHandler)
-	mux.HandleFunc("GET /api/search", getSearch)
-	mux.HandleFunc("POST /api/register", postRegister)
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-
 }
 
 // TODO: currently passing nil since we don't have session/auth handling yet.
@@ -66,7 +103,89 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	templates.ExecuteTemplate(w, "register.html", RegisterData{})
 }
 
-var db *sql.DB // shared connection, every handler in this file can just use this directly
+func generateSessionToken() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+func apiLogin(w http.ResponseWriter, r *http.Request) {
+	error := r.ParseForm()
+	if error != nil {
+		log.Fatal(error)
+		return
+	}
+
+	userList := queryDB(reflect.TypeOf(User{}), "SELECT * FROM users WHERE username = ?", r.FormValue("username"))
+	if len(userList) == 0 {
+		log.Println("func: apiLogin, queryDB returned empty userlist when seaching for username: " + r.FormValue("username"))
+		return
+	}
+
+	foundUser := userList[0].(User)
+
+	if verifyPassword(foundUser.Password, r.FormValue("password")) == false {
+		log.Println("func: apiLogin, user verifacation password missmatch")
+		return
+	} else {
+		token := generateSessionToken()
+
+		SessionsMutex.Lock()
+		Sessions[token] = SessionData{
+			UserID:    foundUser.Id,
+			Username:  foundUser.Username,
+			ExpiresAt: time.Now().Add(24 * time.Hour),
+		}
+		SessionsMutex.Unlock()
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     "session_token",
+			Value:    token,
+			Expires:  time.Now().Add(24 * time.Hour),
+			Path:     "/",
+			HttpOnly: true,
+		})
+
+		println("User", foundUser.Username, "is currently logged in with session")
+		w.Write([]byte("Login succesfull"))
+	}
+}
+
+func queryDB(interchangeableStruct reflect.Type, query string, args ...any) []any {
+	var structArray []any
+	rows, error := db.Query(query, args...)
+
+	if error != nil {
+		log.Fatal(error)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		newStructPointer := reflect.New(interchangeableStruct)
+		structElement := newStructPointer.Elem()
+
+		numCols := structElement.NumField()
+		columns := make([]any, numCols)
+
+		for i := range numCols {
+			field := structElement.Field(i)
+			columns[i] = field.Addr().Interface()
+		}
+
+		error := rows.Scan(columns...)
+		if error != nil {
+			log.Fatal(error)
+		}
+
+		structArray = append(structArray, structElement.Interface())
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	return structArray
+}
 
 func initDB() {
 	var err error
@@ -179,6 +298,14 @@ func postRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func hashPassword(password string) string {
-	hash := md5.Sum([]byte(password)) // md5 for now, swapping to bcrypt later
-	return hex.EncodeToString(hash[:])
+	passwordBytes := []byte(password)
+	passwordHash := md5.Sum(passwordBytes)
+	passwordHashString := hex.EncodeToString(passwordHash[:])
+
+	return passwordHashString
+}
+
+func verifyPassword(storedHash string, password string) bool {
+	passwordHash := hashPassword(password)
+	return storedHash == passwordHash
 }
